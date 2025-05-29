@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>有限公司 vs 有限合伙企业税后利润对比</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    label { display: block; margin: 10px 0 5px; }
+    input[type="number"], select { width: 180px; padding: 5px; }
+    .inline { display: inline-block; margin-right: 15px; }
+    button { margin-top: 15px; padding: 8px 16px; font-size: 14px; }
+    .result, .steps { margin-top: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f5f5f5; }
+    ul { margin: 5px 0 10px 20px; }
+    .note { margin-top: 10px; font-style: italic; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>税后利润对比</h1>
+  <label for="profit">可分配利润 (元)</label>
+  <input type="number" id="profit" value="100000" />
+
+  <h2>有限公司</h2>
+  <label class="inline"><input type="checkbox" id="highTech" /> 高新技术企业 (减按15%企业所得税)</label>
+  <label for="corpTax">企业所得税率 (%)</label>
+  <input type="number" id="corpTax" value="25" />
+  <label for="dividendTax">分红个人所得税率 (%)</label>
+  <input type="number" id="dividendTax" value="20" />
+
+  <h2>有限合伙企业</h2>
+  <label for="partnerLoc">注册地点</label>
+  <select id="partnerLoc">
+    <option value="mainland">中国大陆</option>
+    <option value="hongkong">香港</option>
+    <option value="singapore">新加坡</option>
+    <option value="cayman">开曼群岛</option>
+    <option value="bvi">英属维尔京群岛</option>
+    <option value="seychelles">塞舌尔</option>
+    <option value="delaware">美国特拉华州</option>
+  </select>
+  <div id="mainlandOptions" style="display:none; margin-top:10px;">
+    <label for="mainlandRegion">大陆地区类型</label>
+    <select id="mainlandRegion">
+      <option value="standard">标准地区 (25%)</option>
+      <option value="west">西部大开发鼓励地区 (15%)</option>
+      <option value="hainanFtz">海南自由贸易港 (15%)</option>
+      <option value="hiTechZone">高新技术产业开发区 (15%)</option>
+    </select>
+  </div>
+  <div style="margin-top:10px;">
+    <label>合伙人类型</label>
+    <label class="inline"><input type="radio" name="partnerType" value="corp" checked /> 法人合伙人</label>
+    <label class="inline"><input type="radio" name="partnerType" value="indiv" /> 个人合伙人</label>
+  </div>
+  <div id="indivRateOption" style="display:none; margin-top:10px;">
+    <label for="indivTaxRate">个人合伙人适用税率 (%)</label>
+    <input type="number" id="indivTaxRate" value="25" />
+  </div>
+
+  <button onclick="calculate()">计算对比</button>
+  <div class="steps" id="steps"></div>
+  <div class="result" id="result"></div>
+
+  <script>
+    const highTech = document.getElementById('highTech');
+    const corpTaxInput = document.getElementById('corpTax');
+    const partnerLoc = document.getElementById('partnerLoc');
+    const mainlandOpts = document.getElementById('mainlandOptions');
+    const mainlandRegion = document.getElementById('mainlandRegion');
+    const partnerTypes = document.getElementsByName('partnerType');
+    const indivOpt = document.getElementById('indivRateOption');
+    const indivRate = document.getElementById('indivTaxRate');
+
+    // 显示/隐藏逻辑
+    highTech.addEventListener('change', () => { corpTaxInput.disabled = highTech.checked; calculate(); });
+    partnerLoc.addEventListener('change', () => {
+      mainlandOpts.style.display = partnerLoc.value === 'mainland' ? 'block' : 'none';
+      calculate();
+    });
+    mainlandRegion.addEventListener('change', calculate);
+    partnerTypes.forEach(r => r.addEventListener('change', () => {
+      indivOpt.style.display = document.querySelector('input[name=partnerType]:checked').value === 'indiv' ? 'block' : 'none';
+      calculate();
+    }));
+    indivRate.addEventListener('input', calculate);
+
+    function calculate() {
+      const profit = parseFloat(document.getElementById('profit').value) || 0;
+      // 有限公司税率
+      let corpTaxRate = highTech.checked ? 0.15 : (parseFloat(corpTaxInput.value)/100 || 0);
+      const divTaxRate = parseFloat(document.getElementById('dividendTax').value)/100 || 0;
+
+      // 合伙企业税率 & 文本
+      let partnerRate = 0, partnerText = '';
+      const loc = partnerLoc.value;
+      if (loc === 'mainland') {
+        const map = { standard:0.25, west:0.15, hainanFtz:0.15, hiTechZone:0.15 };
+        const mapText = { standard:'标准地区', west:'西部大开发鼓励地区', hainanFtz:'海南自由贸易港', hiTechZone:'高新技术产业开发区' };
+        partnerRate = map[mainlandRegion.value];
+        partnerText = `中国大陆（${mapText[mainlandRegion.value]}）`;
+      } else {
+        const mapRates = { hongkong:0.165, singapore:0.17, cayman:0.00, bvi:0.00, seychelles:0.00, delaware:0.00 };
+        const mapText = { hongkong:'香港', singapore:'新加坡', cayman:'开曼群岛', bvi:'英属维尔京群岛', seychelles:'塞舌尔', delaware:'美国特拉华州' };
+        partnerRate = mapRates[loc];
+        partnerText = mapText[loc];
+      }
+      const type = document.querySelector('input[name=partnerType]:checked').value;
+      if (type === 'indiv') partnerRate = parseFloat(indivRate.value)/100 || 0;
+
+      // 公司计算
+      const corpTaxAmt = profit * corpTaxRate;
+      const afterCorp = profit - corpTaxAmt;
+      const divTaxAmt = afterCorp * divTaxRate;
+      const netLLC = afterCorp - divTaxAmt;
+      // 合伙计算
+      const partTaxAmt = profit * partnerRate;
+      const netPart = profit - partTaxAmt;
+
+      // 显示步骤
+      document.getElementById('steps').innerHTML = `
+        <h3>计算步骤</h3>
+        <p><strong>初始可分配利润：</strong>${profit.toFixed(2)} 元</p>
+        <h4>有限公司：</h4>
+        <ul>
+          <li>企业所得税 = ${profit.toFixed(2)} × ${(corpTaxRate*100).toFixed(2)}% = ${corpTaxAmt.toFixed(2)} 元</li>
+          <li>扣税后利润 = ${afterCorp.toFixed(2)} 元</li>
+          <li>分红税 = ${afterCorp.toFixed(2)} × ${(divTaxRate*100).toFixed(2)}% = ${divTaxAmt.toFixed(2)} 元</li>
+          <li>税后利润 = ${netLLC.toFixed(2)} 元</li>
+        </ul>
+        <h4>有限合伙企业（${partnerText}，${type==='corp'?'法人':'个人'}合伙人）：</h4>
+        <ul>
+          <li>综合税 = ${profit.toFixed(2)} × ${(partnerRate*100).toFixed(2)}% = ${partTaxAmt.toFixed(2)} 元</li>
+          <li>税后利润 = ${netPart.toFixed(2)} 元</li>
+        </ul>
+      `;
+
+      // 显示结果及注意事项
+      let res = `<h3>对比结果</h3>
+        <table>
+          <tr><th>方案</th><th>税后利润 (元)</th></tr>
+          <tr><td>有限公司${highTech.checked?'（高新技术企业）':''}</td><td>${netLLC.toFixed(2)}</td></tr>
+          <tr><td>有限合伙企业（${partnerText}，${type==='corp'?'法人':'个人'}）</td><td>${netPart.toFixed(2)}</td></tr>
+        </table>`;
+      // 注意事项映射
+      const notes = {
+        bvi: 'BVI 注册虽享零税率，但需考虑注册成本、年审费用、实质经营要求及国际信息交换等。',
+        cayman: '开曼注册无所得税，但需支付年费、注意CARF 和经济实质法规要求。',
+        seychelles: '塞舌尔零税率，但双边税约少、监管关注度高。',
+        delaware: '特拉华州LP 为税收透明体，无州所得税，但需支付特许经营税和注册代理费，且以美元运营。',
+        hongkong: '香港外汇自由兑换，税率16.5%，需满足实质经营和审计要求。',
+        singapore: '新加坡企业所得税17%，外汇自由，享税收协定网络广。'
+      };
+      if (notes[loc]) res += `<p class="note">提示：${notes[loc]}</p>`;
+      document.getElementById('result').innerHTML = res;
+    }
+    // 初始化显示及计算
+    if (partnerLoc.value==='mainland') mainlandOpts.style.display='block';
+    calculate();
+  </script>
+</body>
+</html>
