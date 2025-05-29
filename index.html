@@ -6,7 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     label { display: block; margin: 10px 0 5px; }
-    input[type="number"], select { width: 180px; padding: 5px; }
+    input[type="number"], select { width: 200px; padding: 5px; }
     .inline { display: inline-block; margin-right: 15px; }
     button { margin-top: 15px; padding: 8px 16px; font-size: 14px; }
     .result, .steps { margin-top: 20px; }
@@ -54,9 +54,15 @@
     <label class="inline"><input type="radio" name="partnerType" value="corp" checked /> 法人合伙人</label>
     <label class="inline"><input type="radio" name="partnerType" value="indiv" /> 个人合伙人</label>
   </div>
-  <div id="indivRateOption" style="display:none; margin-top:10px;">
-    <label for="indivTaxRate">个人合伙人适用税率 (%)</label>
-    <input type="number" id="indivTaxRate" value="25" />
+  <div id="indivBracketOption" style="display:none; margin-top:10px;">
+    <label for="indivBracket">个人合伙人税率档次</label>
+    <select id="indivBracket">
+      <option value="0.05">≤30,000元：5%</option>
+      <option value="0.10">30,001–90,000元：10%</option>
+      <option value="0.20">90,001–300,000元：20%</option>
+      <option value="0.30">300,001–500,000元：30%</option>
+      <option value="0.35">>500,000元：35%</option>
+    </select>
   </div>
 
   <button onclick="calculate()">计算对比</button>
@@ -70,10 +76,9 @@
     const mainlandOpts = document.getElementById('mainlandOptions');
     const mainlandRegion = document.getElementById('mainlandRegion');
     const partnerTypes = document.getElementsByName('partnerType');
-    const indivOpt = document.getElementById('indivRateOption');
-    const indivRate = document.getElementById('indivTaxRate');
+    const indivBracketOpt = document.getElementById('indivBracketOption');
+    const indivBracket = document.getElementById('indivBracket');
 
-    // 显示/隐藏逻辑
     highTech.addEventListener('change', () => { corpTaxInput.disabled = highTech.checked; calculate(); });
     partnerLoc.addEventListener('change', () => {
       mainlandOpts.style.display = partnerLoc.value === 'mainland' ? 'block' : 'none';
@@ -81,10 +86,10 @@
     });
     mainlandRegion.addEventListener('change', calculate);
     partnerTypes.forEach(r => r.addEventListener('change', () => {
-      indivOpt.style.display = document.querySelector('input[name=partnerType]:checked').value === 'indiv' ? 'block' : 'none';
+      indivBracketOpt.style.display = document.querySelector('input[name=partnerType]:checked').value === 'indiv' ? 'block' : 'none';
       calculate();
     }));
-    indivRate.addEventListener('input', calculate);
+    indivBracket.addEventListener('change', calculate);
 
     function calculate() {
       const profit = parseFloat(document.getElementById('profit').value) || 0;
@@ -92,7 +97,7 @@
       let corpTaxRate = highTech.checked ? 0.15 : (parseFloat(corpTaxInput.value)/100 || 0);
       const divTaxRate = parseFloat(document.getElementById('dividendTax').value)/100 || 0;
 
-      // 合伙企业税率 & 文本
+      // 合伙企业税率
       let partnerRate = 0, partnerText = '';
       const loc = partnerLoc.value;
       if (loc === 'mainland') {
@@ -107,7 +112,7 @@
         partnerText = mapText[loc];
       }
       const type = document.querySelector('input[name=partnerType]:checked').value;
-      if (type === 'indiv') partnerRate = parseFloat(indivRate.value)/100 || 0;
+      if (type === 'indiv') partnerRate = parseFloat(indivBracket.value);
 
       // 公司计算
       const corpTaxAmt = profit * corpTaxRate;
@@ -136,14 +141,13 @@
         </ul>
       `;
 
-      // 显示结果及注意事项
+      // 结果及注意事项
       let res = `<h3>对比结果</h3>
         <table>
           <tr><th>方案</th><th>税后利润 (元)</th></tr>
           <tr><td>有限公司${highTech.checked?'（高新技术企业）':''}</td><td>${netLLC.toFixed(2)}</td></tr>
           <tr><td>有限合伙企业（${partnerText}，${type==='corp'?'法人':'个人'}）</td><td>${netPart.toFixed(2)}</td></tr>
         </table>`;
-      // 注意事项映射
       const notes = {
         bvi: 'BVI 注册虽享零税率，但需考虑注册成本、年审费用、实质经营要求及国际信息交换等。',
         cayman: '开曼注册无所得税，但需支付年费、注意CARF 和经济实质法规要求。',
@@ -155,7 +159,7 @@
       if (notes[loc]) res += `<p class="note">提示：${notes[loc]}</p>`;
       document.getElementById('result').innerHTML = res;
     }
-    // 初始化显示及计算
+    // 初始化
     if (partnerLoc.value==='mainland') mainlandOpts.style.display='block';
     calculate();
   </script>
